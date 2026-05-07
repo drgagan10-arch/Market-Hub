@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, setDoc, getDoc, query, where, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-// ---------- FIREBASE CONFIG ----------
 const firebaseConfig = {
     apiKey: "AIzaSyB6rFy7GfJR0CwSn-ipam2aph5aKivDiPA",
     authDomain: "bccc-cb695.firebaseapp.com",
@@ -18,17 +17,14 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// ---------- CART (localStorage) ----------
+// ---------- CART ----------
 let cart = [];
 function loadCart() {
     const saved = localStorage.getItem('marketHubCart');
     cart = saved ? JSON.parse(saved) : [];
     updateCartBadge();
 }
-function saveCart() {
-    localStorage.setItem('marketHubCart', JSON.stringify(cart));
-    updateCartBadge();
-}
+function saveCart() { localStorage.setItem('marketHubCart', JSON.stringify(cart)); updateCartBadge(); }
 function updateCartBadge() {
     const total = cart.reduce((s, i) => s + (i.quantity || 1), 0);
     document.querySelectorAll('#cartNavCount').forEach(el => el.innerText = total);
@@ -41,17 +37,24 @@ function addToCart(product) {
     alert(`${product.name} added to cart!`);
 }
 
-// ---------- PRODUCTS (multiple images, search, sorting) ----------
+// ---------- LOADING SPINNER HELPERS ----------
+function showSpinner(containerId) {
+    const container = document.getElementById(containerId);
+    if (container) container.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
+}
+function hideSpinner(containerId) { /* not needed because we replace content */ }
+
+// ---------- PRODUCTS (with spinner) ----------
 let allProducts = [];
 let currentFilteredProducts = [];
 
 async function fetchProducts() {
+    showSpinner('productsContainer');
     try {
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const qSnap = await getDocs(q);
         allProducts = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        console.log("Products loaded:", allProducts.length);
-        currentFilteredProducts = [...allProducts];   // show all initially
+        currentFilteredProducts = [...allProducts];
         renderProductGrid();
         
         if (window.location.pathname.includes('admin.html') && sessionStorage.getItem('isAdmin') === 'true') {
@@ -62,27 +65,25 @@ async function fetchProducts() {
             loadProductDetail();
         }
     } catch (error) {
-        console.error("Error fetching products:", error);
+        console.error(error);
         const container = document.getElementById('productsContainer');
-        if (container) container.innerHTML = '<div>⚠️ Failed to load products. Check Firestore rules.</div>';
+        if (container) container.innerHTML = '<div>⚠️ Failed to load products. Check console.</div>';
     }
 }
 
 function performSearch(term) {
     term = (term || "").toLowerCase().trim();
-    if (!term) {
-        currentFilteredProducts = [...allProducts];
-    } else {
+    if (!term) currentFilteredProducts = [...allProducts];
+    else {
         currentFilteredProducts = allProducts.filter(p => 
             p.name.toLowerCase().includes(term) ||
             (p.description && p.description.toLowerCase().includes(term)) ||
             p.price.toString().includes(term)
         );
-        // keep newest first
         currentFilteredProducts.sort((a, b) => {
-            const dateA = a.createdAt ? a.createdAt.toDate?.() : null;
-            const dateB = b.createdAt ? b.createdAt.toDate?.() : null;
-            return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+            const dateA = a.createdAt?.toDate?.() || new Date(0);
+            const dateB = b.createdAt?.toDate?.() || new Date(0);
+            return dateB - dateA;
         });
     }
     renderProductGrid();
@@ -92,13 +93,17 @@ function setupSearch() {
     const searchInput = document.getElementById('searchInput');
     if (!searchInput) return;
     searchInput.addEventListener('input', (e) => performSearch(e.target.value));
-    performSearch(''); // initial empty search
+    performSearch('');
 }
 
 function getFirstImage(product) {
     if (!product.imageData) return 'https://via.placeholder.com/270';
     if (Array.isArray(product.imageData) && product.imageData.length) return product.imageData[0];
     if (typeof product.imageData === 'string') return product.imageData;
+    if (typeof product.imageData === 'object') {
+        const values = Object.values(product.imageData);
+        if (values.length) return values[0];
+    }
     return 'https://via.placeholder.com/270';
 }
 
@@ -106,8 +111,8 @@ function renderProductGrid() {
     const container = document.getElementById('productsContainer');
     if (!container) return;
     if (!currentFilteredProducts || currentFilteredProducts.length === 0) {
-        if (allProducts.length === 0) container.innerHTML = '<div>✨ No products yet. Admin can add some.</div>';
-        else container.innerHTML = '<div>🔍 No products match your search.</div>';
+        if (allProducts.length === 0) container.innerHTML = '<div class="loading-container">✨ No products yet. Admin can add some.</div>';
+        else container.innerHTML = '<div class="loading-container">🔍 No products match your search.</div>';
         return;
     }
     container.innerHTML = currentFilteredProducts.map(p => {
@@ -124,7 +129,6 @@ function renderProductGrid() {
         </div>`;
     }).join('');
     
-    // Attach click events (product detail and add to cart)
     document.querySelectorAll('.product-card').forEach(card => {
         const productId = card.dataset.id;
         const btn = card.querySelector('.add-cart-btn');
@@ -147,7 +151,7 @@ function renderProductGrid() {
     });
 }
 
-// ---------- PRODUCT DETAIL PAGE (multiple images, similar products) ----------
+// ---------- PRODUCT DETAIL PAGE (with spinner) ----------
 async function loadProductDetail() {
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get('id');
@@ -156,6 +160,10 @@ async function loadProductDetail() {
         document.getElementById('productNotFound').style.display = 'block';
         return;
     }
+    // Show spinner on main content
+    const detailContainer = document.getElementById('productDetail');
+    if (detailContainer) detailContainer.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
+    
     if (allProducts.length === 0) {
         setTimeout(() => loadProductDetail(), 300);
         return;
@@ -166,38 +174,49 @@ async function loadProductDetail() {
         document.getElementById('productNotFound').style.display = 'block';
         return;
     }
+    
     let images = [];
     if (product.imageData) {
         if (Array.isArray(product.imageData)) images = product.imageData;
-        else images = [product.imageData];
+        else if (typeof product.imageData === 'string') images = [product.imageData];
+        else if (typeof product.imageData === 'object') images = Object.values(product.imageData);
     }
-    if (images.length === 0) images = ['https://via.placeholder.com/400'];
+    if (images.length === 0) images = ['https://via.placeholder.com/400?text=No+Image'];
+    images = images.slice(0, 5);
     
-    document.getElementById('productName').innerText = product.name;
-    document.getElementById('productPrice').innerHTML = `₹${product.price?.toFixed(2)}`;
-    document.getElementById('productDescription').innerText = product.description || 'No description available.';
-    document.getElementById('mainProductImage').src = images[0];
-    
+    // Rebuild detail HTML (spinner replaced)
+    document.getElementById('productDetail').innerHTML = `
+        <div class="product-gallery">
+            <div class="main-image"><img id="mainProductImage" src="${images[0]}" alt="${escapeHtml(product.name)}"></div>
+            <div id="thumbnailList" class="thumbnail-list"></div>
+        </div>
+        <div class="product-info-detail">
+            <h1 id="productName">${escapeHtml(product.name)}</h1>
+            <div class="product-price-detail" id="productPrice">₹${product.price?.toFixed(2)}</div>
+            <div class="product-description-full" id="productDescription">${escapeHtml(product.description || 'No description available.')}</div>
+            <button id="detailAddToCartBtn" class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+        </div>
+    `;
     const thumbContainer = document.getElementById('thumbnailList');
-    thumbContainer.innerHTML = images.map((img, idx) => `<img src="${img}" data-index="${idx}" class="thumbnail">`).join('');
-    document.querySelectorAll('.thumbnail').forEach(thumb => {
-        thumb.addEventListener('click', () => {
-            document.getElementById('mainProductImage').src = thumb.src;
+    if (thumbContainer) {
+        thumbContainer.innerHTML = images.map((img, idx) => `<img src="${img}" data-index="${idx}" class="thumbnail" style="cursor:pointer; width:80px; height:80px; object-fit:cover; border-radius:8px;">`).join('');
+        document.querySelectorAll('.thumbnail').forEach(thumb => {
+            thumb.addEventListener('click', () => {
+                document.getElementById('mainProductImage').src = thumb.src;
+            });
         });
-    });
-    
+    }
     const addBtn = document.getElementById('detailAddToCartBtn');
-    addBtn.replaceWith(addBtn.cloneNode(true));
-    const newAddBtn = document.getElementById('detailAddToCartBtn');
-    newAddBtn.addEventListener('click', () => {
-        addToCart({
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            imageUrl: images[0]
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            addToCart({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                imageUrl: images[0]
+            });
         });
-    });
-    
+    }
     renderSimilarProducts(product);
 }
 
@@ -248,7 +267,7 @@ function renderSimilarProducts(currentProduct) {
     });
 }
 
-// ---------- ADMIN PRODUCT MANAGEMENT ----------
+// ---------- ADMIN (with spinner on table load) ----------
 async function addProduct(name, price, description, imageDataArray) {
     if (sessionStorage.getItem('isAdmin') !== 'true') return alert("Admin only");
     await addDoc(collection(db, "products"), { 
@@ -269,8 +288,9 @@ async function deleteProduct(id) {
 async function renderAdminTable() {
     const tbody = document.getElementById('adminProductsList');
     if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="loading-container"><div class="spinner"></div></td></tr>';
     if (allProducts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.</td></table>';
+        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.</td></tr>';
         return;
     }
     tbody.innerHTML = allProducts.map(p => {
@@ -308,7 +328,7 @@ function showProfileModalIfMissing() {
     }
 }
 
-// ---------- ORDERS ----------
+// ---------- ORDERS (with spinner) ----------
 async function createOrder(orderData) {
     await addDoc(collection(db, "orders"), { ...orderData, createdAt: new Date(), userId: currentUser.uid });
 }
@@ -327,7 +347,7 @@ async function confirmPayment(orderId) {
     if (window.location.pathname.includes('admin.html')) loadPendingOrdersAdmin();
 }
 
-// ---------- CART PAGE RENDERING ----------
+// ---------- CART PAGE ----------
 function renderCartPage() {
     const container = document.getElementById('cartContainer');
     if (!container) return;
@@ -336,7 +356,7 @@ function renderCartPage() {
         return;
     }
     let total = 0;
-    let html = `<table class="cart-table"><thead><tr><th>Item</th><th>Name</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead><tbody>`;
+    let html = `<table class="cart-table"><thead><tr><th>Item</th><th>Name</th><th>Price</th><th>Qty</th><th>Total</th><th></th><tr></thead><tbody>`;
     cart.forEach((item, idx) => {
         const itemTotal = item.price * item.quantity;
         total += itemTotal;
@@ -349,7 +369,7 @@ function renderCartPage() {
             <td><i class="fas fa-trash-alt remove-item" data-idx="${idx}"></i></td>
         </tr>`;
     });
-    html += `</tbody><table><div class="cart-total">Grand Total: ₹${total.toFixed(2)}</div>`;
+    html += `</tbody></table><div class="cart-total">Grand Total: ₹${total.toFixed(2)}</div>`;
     container.innerHTML = html;
     document.querySelectorAll('.qty-input').forEach(inp => inp.addEventListener('change', (e) => {
         const idx = parseInt(inp.dataset.idx);
@@ -371,12 +391,14 @@ function renderCartPage() {
 }
 
 async function renderMyOrders() {
+    const container = document.getElementById('ordersList');
+    if (!container) return;
     if (!currentUser) {
         window.location.href = 'index.html';
         return;
     }
+    container.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
     const orders = await getMyOrders();
-    const container = document.getElementById('ordersList');
     if (orders.length === 0) container.innerHTML = '<div>No orders yet.</div>';
     else {
         container.innerHTML = orders.map(o => `
@@ -394,6 +416,7 @@ async function renderMyOrders() {
 async function loadPendingOrdersAdmin() {
     const container = document.getElementById('pendingOrdersList');
     if (!container) return;
+    container.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
     const orders = await getPendingOrders();
     if (orders.length === 0) container.innerHTML = '<div>No pending payments.</div>';
     else {
@@ -414,7 +437,7 @@ async function loadPendingOrdersAdmin() {
     }));
 }
 
-// ---------- CHECKOUT ----------
+// ---------- CHECKOUT (with initial spinner, but already async) ----------
 async function initCheckout() {
     if (!currentUser) {
         window.location.href = 'index.html';
@@ -496,7 +519,7 @@ function setupAuthAndFeatures() {
         if (window.location.pathname.includes('myorders.html') && user) renderMyOrders();
         if (window.location.pathname.includes('admin.html') && sessionStorage.getItem('isAdmin') !== 'true') window.location.href = 'index.html';
         fetchProducts();
-        setupSearch(); // call after fetchProducts (or inside, but safe to call again)
+        setupSearch();
     });
 
     // Login / Signup events
@@ -538,7 +561,7 @@ function setupAuthAndFeatures() {
     });
     document.getElementById('logoutBtn')?.addEventListener('click', () => signOut(auth));
 
-    // Modal open/close
+    // Modal controls
     document.getElementById('loginModalBtn')?.addEventListener('click', () => showModal('authModal'));
     document.getElementById('signupModalBtn')?.addEventListener('click', () => {
         showModal('authModal');
@@ -583,7 +606,7 @@ function setupAuthAndFeatures() {
         window.location.href = 'index.html';
     });
 
-    // Admin: add product with up to 5 images (Base64)
+    // Admin add product with images
     const fileInput = document.getElementById('prodImageFiles');
     const previewContainer = document.getElementById('imagePreviews');
     if (fileInput) {
@@ -624,7 +647,6 @@ function setupAuthAndFeatures() {
     });
 }
 
-// Helper
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/[&<>]/g, m => {
