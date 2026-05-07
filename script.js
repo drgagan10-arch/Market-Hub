@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, setDoc, getDoc, query, where, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
+// ---------- FIREBASE CONFIG ----------
 const firebaseConfig = {
     apiKey: "AIzaSyB6rFy7GfJR0CwSn-ipam2aph5aKivDiPA",
     authDomain: "bccc-cb695.firebaseapp.com",
@@ -17,7 +18,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-// ---------- CART ----------
+// ---------- CART (localStorage) ----------
 let cart = [];
 function loadCart() {
     const saved = localStorage.getItem('marketHubCart');
@@ -40,26 +41,19 @@ function addToCart(product) {
     alert(`${product.name} added to cart!`);
 }
 
-// ---------- PRODUCTS ----------
+// ---------- PRODUCTS (multiple images, search, sorting) ----------
 let allProducts = [];
 let currentFilteredProducts = [];
 
 async function fetchProducts() {
     try {
-        // Order by createdAt descending (newest first) if available, otherwise by name
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const qSnap = await getDocs(q);
-        allProducts = qSnap.docs.map(d => ({ 
-            id: d.id, 
-            ...d.data(),
-            createdAt: d.data().createdAt ? d.data().createdAt.toDate() : null
-        }));
+        allProducts = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         console.log("Products loaded:", allProducts.length);
-        // Set filtered products to ALL products initially
-        currentFilteredProducts = [...allProducts];
+        currentFilteredProducts = [...allProducts];   // show all initially
         renderProductGrid();
         
-        // Admin & detail page logic
         if (window.location.pathname.includes('admin.html') && sessionStorage.getItem('isAdmin') === 'true') {
             renderAdminTable();
             loadPendingOrdersAdmin();
@@ -70,28 +64,25 @@ async function fetchProducts() {
     } catch (error) {
         console.error("Error fetching products:", error);
         const container = document.getElementById('productsContainer');
-        if (container) container.innerHTML = '<div>⚠️ Failed to load products. Check console and Firestore rules.</div>';
+        if (container) container.innerHTML = '<div>⚠️ Failed to load products. Check Firestore rules.</div>';
     }
 }
 
-// Search function
 function performSearch(term) {
     term = (term || "").toLowerCase().trim();
     if (!term) {
-        // Empty search → show all products
         currentFilteredProducts = [...allProducts];
-        console.log("Empty search, showing all products:", currentFilteredProducts.length);
     } else {
         currentFilteredProducts = allProducts.filter(p => 
             p.name.toLowerCase().includes(term) ||
             (p.description && p.description.toLowerCase().includes(term)) ||
             p.price.toString().includes(term)
         );
-        // Keep sorted by date (newest first)
+        // keep newest first
         currentFilteredProducts.sort((a, b) => {
-            const dateA = a.createdAt ? a.createdAt.getTime() : 0;
-            const dateB = b.createdAt ? b.createdAt.getTime() : 0;
-            return dateB - dateA;
+            const dateA = a.createdAt ? a.createdAt.toDate?.() : null;
+            const dateB = b.createdAt ? b.createdAt.toDate?.() : null;
+            return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
         });
     }
     renderProductGrid();
@@ -100,17 +91,13 @@ function performSearch(term) {
 function setupSearch() {
     const searchInput = document.getElementById('searchInput');
     if (!searchInput) return;
-    searchInput.addEventListener('input', (e) => {
-        performSearch(e.target.value);
-    });
-    // Trigger an initial search to show all products if input is empty
-    performSearch(searchInput.value);
+    searchInput.addEventListener('input', (e) => performSearch(e.target.value));
+    performSearch(''); // initial empty search
 }
 
-// Helper: get first image
 function getFirstImage(product) {
     if (!product.imageData) return 'https://via.placeholder.com/270';
-    if (Array.isArray(product.imageData) && product.imageData.length > 0) return product.imageData[0];
+    if (Array.isArray(product.imageData) && product.imageData.length) return product.imageData[0];
     if (typeof product.imageData === 'string') return product.imageData;
     return 'https://via.placeholder.com/270';
 }
@@ -118,16 +105,11 @@ function getFirstImage(product) {
 function renderProductGrid() {
     const container = document.getElementById('productsContainer');
     if (!container) return;
-    
     if (!currentFilteredProducts || currentFilteredProducts.length === 0) {
-        if (allProducts.length === 0) {
-            container.innerHTML = '<div>✨ No products yet. Admin can add some.</div>';
-        } else {
-            container.innerHTML = '<div>🔍 No products match your search.</div>';
-        }
+        if (allProducts.length === 0) container.innerHTML = '<div>✨ No products yet. Admin can add some.</div>';
+        else container.innerHTML = '<div>🔍 No products match your search.</div>';
         return;
     }
-    
     container.innerHTML = currentFilteredProducts.map(p => {
         const imgUrl = getFirstImage(p);
         return `
@@ -142,7 +124,7 @@ function renderProductGrid() {
         </div>`;
     }).join('');
     
-    // Attach events
+    // Attach click events (product detail and add to cart)
     document.querySelectorAll('.product-card').forEach(card => {
         const productId = card.dataset.id;
         const btn = card.querySelector('.add-cart-btn');
@@ -165,7 +147,7 @@ function renderProductGrid() {
     });
 }
 
-// ---------- PRODUCT DETAIL PAGE ----------
+// ---------- PRODUCT DETAIL PAGE (multiple images, similar products) ----------
 async function loadProductDetail() {
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get('id');
@@ -184,7 +166,6 @@ async function loadProductDetail() {
         document.getElementById('productNotFound').style.display = 'block';
         return;
     }
-    
     let images = [];
     if (product.imageData) {
         if (Array.isArray(product.imageData)) images = product.imageData;
@@ -275,7 +256,7 @@ async function addProduct(name, price, description, imageDataArray) {
         price: parseFloat(price), 
         description, 
         imageData: imageDataArray.slice(0,5),
-        createdAt: new Date()   // store client timestamp if serverTimestamp not used
+        createdAt: new Date()
     });
     fetchProducts();
 }
@@ -289,7 +270,7 @@ async function renderAdminTable() {
     const tbody = document.getElementById('adminProductsList');
     if (!tbody) return;
     if (allProducts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.<tr></tr>';
+        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.</td></table>';
         return;
     }
     tbody.innerHTML = allProducts.map(p => {
@@ -305,7 +286,7 @@ async function renderAdminTable() {
     document.querySelectorAll('.delete-product').forEach(btn => btn.addEventListener('click', () => deleteProduct(btn.dataset.id)));
 }
 
-// ---------- USER PROFILE (unchanged, keep yours) ----------
+// ---------- USER PROFILE ----------
 let currentUser = null;
 let userProfile = { name: '', mobile: '', address: '' };
 async function fetchUserProfile(uid) {
@@ -327,10 +308,7 @@ function showProfileModalIfMissing() {
     }
 }
 
-// ---------- ORDERS (keep your existing order functions) ----------
-// For brevity, keep your existing createOrder, getMyOrders, etc. 
-// I'm assuming you already have them. If not, they are below.
-
+// ---------- ORDERS ----------
 async function createOrder(orderData) {
     await addDoc(collection(db, "orders"), { ...orderData, createdAt: new Date(), userId: currentUser.uid });
 }
@@ -349,7 +327,7 @@ async function confirmPayment(orderId) {
     if (window.location.pathname.includes('admin.html')) loadPendingOrdersAdmin();
 }
 
-// ---------- PAGE RENDERING (cart, orders, admin) ----------
+// ---------- CART PAGE RENDERING ----------
 function renderCartPage() {
     const container = document.getElementById('cartContainer');
     if (!container) return;
@@ -391,8 +369,12 @@ function renderCartPage() {
         else alert('Please login first');
     });
 }
+
 async function renderMyOrders() {
-    if (!currentUser) return (window.location.href = 'index.html');
+    if (!currentUser) {
+        window.location.href = 'index.html';
+        return;
+    }
     const orders = await getMyOrders();
     const container = document.getElementById('ordersList');
     if (orders.length === 0) container.innerHTML = '<div>No orders yet.</div>';
@@ -408,6 +390,7 @@ async function renderMyOrders() {
         `).join('');
     }
 }
+
 async function loadPendingOrdersAdmin() {
     const container = document.getElementById('pendingOrdersList');
     if (!container) return;
@@ -431,7 +414,7 @@ async function loadPendingOrdersAdmin() {
     }));
 }
 
-// ---------- CHECKOUT (keep your existing) ----------
+// ---------- CHECKOUT ----------
 async function initCheckout() {
     if (!currentUser) {
         window.location.href = 'index.html';
@@ -513,9 +496,10 @@ function setupAuthAndFeatures() {
         if (window.location.pathname.includes('myorders.html') && user) renderMyOrders();
         if (window.location.pathname.includes('admin.html') && sessionStorage.getItem('isAdmin') !== 'true') window.location.href = 'index.html';
         fetchProducts();
+        setupSearch(); // call after fetchProducts (or inside, but safe to call again)
     });
 
-    // Login / Signup (keep your existing implementation)
+    // Login / Signup events
     document.getElementById('doLoginBtn')?.addEventListener('click', async () => {
         const email = document.getElementById('loginEmail').value;
         const pwd = document.getElementById('loginPassword').value;
@@ -554,7 +538,7 @@ function setupAuthAndFeatures() {
     });
     document.getElementById('logoutBtn')?.addEventListener('click', () => signOut(auth));
 
-    // Modal controls
+    // Modal open/close
     document.getElementById('loginModalBtn')?.addEventListener('click', () => showModal('authModal'));
     document.getElementById('signupModalBtn')?.addEventListener('click', () => {
         showModal('authModal');
@@ -581,7 +565,7 @@ function setupAuthAndFeatures() {
         if (e.target.classList.contains('modal')) hideModal(e.target.id);
     });
 
-    // Admin login
+    // Admin hardcoded login
     document.getElementById('adminLoginBtn')?.addEventListener('click', () => showModal('adminAuthModal'));
     document.getElementById('doAdminLoginBtn')?.addEventListener('click', () => {
         const user = document.getElementById('adminUsername').value;
@@ -599,7 +583,7 @@ function setupAuthAndFeatures() {
         window.location.href = 'index.html';
     });
 
-    // Admin add product with images
+    // Admin: add product with up to 5 images (Base64)
     const fileInput = document.getElementById('prodImageFiles');
     const previewContainer = document.getElementById('imagePreviews');
     if (fileInput) {
@@ -638,14 +622,12 @@ function setupAuthAndFeatures() {
         window.tempImagesBase64 = null;
         alert('Product added!');
     });
-    
-    setupSearch();
 }
 
 // Helper
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>]/g, function(m) {
+    return str.replace(/[&<>]/g, m => {
         if (m === '&') return '&amp;';
         if (m === '<') return '&lt;';
         if (m === '>') return '&gt;';
@@ -653,7 +635,7 @@ function escapeHtml(str) {
     });
 }
 
-// Start
+// ---------- INITIALIZE ----------
 loadCart();
 setupAuthAndFeatures();
 if (window.location.pathname.includes('cart.html')) renderCartPage();
