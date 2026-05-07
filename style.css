@@ -368,3 +368,61 @@ input, textarea, select {
         grid-template-columns: 1fr;
     }
 }
+/* Similar Products Section */
+.similar-products-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 2px solid #edf2f7;
+}
+.similar-products-section h3 {
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+.similar-products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+.similar-product-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+.similar-product-card:hover {
+    transform: translateY(-4px);
+}
+.similar-product-card img {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+}
+.similar-product-info {
+    padding: 0.8rem;
+}
+.similar-product-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+}
+.similar-product-price {
+    color: #2c7da0;
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0.5rem 0;
+}
+.similar-add-cart-btn {
+    background: #2c3e66;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 30px;
+    width: 100%;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.similar-add-cart-btn:hover {
+    background: #1f2c4b;
+}
