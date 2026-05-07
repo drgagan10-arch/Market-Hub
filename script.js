@@ -52,7 +52,7 @@ function sendWhatsAppNotification(itemsSummary, total, orderId, userName, mobile
     });
 }
 
-// ---------- PRODUCTS (with multiple images) ----------
+// ---------- PRODUCTS (with multiple images & search) ----------
 let allProducts = [];
 let currentFilteredProducts = [];
 
@@ -76,13 +76,14 @@ async function fetchProducts() {
     }
 }
 
-// Search functionality
+// SEARCH FUNCTIONALITY (FIXED)
 function setupSearch() {
     const searchInput = document.getElementById('searchInput');
     if (!searchInput) return;
-    searchInput.addEventListener('input', (e) => {
-        const term = e.target.value.toLowerCase();
-        if (!term.trim()) {
+    
+    const performSearch = () => {
+        const term = searchInput.value.toLowerCase().trim();
+        if (!term) {
             currentFilteredProducts = [...allProducts];
         } else {
             currentFilteredProducts = allProducts.filter(p => 
@@ -91,8 +92,12 @@ function setupSearch() {
                 p.price.toString().includes(term)
             );
         }
-        renderProductGrid();
-    });
+        renderProductGrid();  // re-render with filtered list
+    };
+    
+    searchInput.addEventListener('input', performSearch);
+    // Also trigger search when products are loaded (in case search input already has text)
+    setTimeout(performSearch, 500);
 }
 
 function renderProductGrid() {
@@ -108,13 +113,14 @@ function renderProductGrid() {
         <div class="product-card" data-product-id="${p.id}">
             <img class="product-img" src="${firstImage}" alt="${p.name}">
             <div class="product-info">
-                <div class="product-title">${p.name}</div>
+                <div class="product-title">${escapeHtml(p.name)}</div>
                 <div class="product-price">₹${p.price?.toFixed(2)}</div>
-                <div class="product-desc">${p.description?.substring(0,80) || ''}</div>
-                <button class="add-cart-btn" data-id="${p.id}" data-name="${p.name}" data-price="${p.price}" data-img="${firstImage}"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+                <div class="product-desc">${escapeHtml(p.description?.substring(0,80) || '')}</div>
+                <button class="add-cart-btn" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-price="${p.price}" data-img="${firstImage}"><i class="fas fa-cart-plus"></i> Add to Cart</button>
             </div>
         </div>
     `}).join('');
+    
     // Make product card clickable (except on button)
     document.querySelectorAll('.product-card').forEach(card => {
         const productId = card.dataset.productId;
@@ -126,6 +132,7 @@ function renderProductGrid() {
         });
         card.style.cursor = 'pointer';
     });
+    
     document.querySelectorAll('.add-cart-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -136,6 +143,17 @@ function renderProductGrid() {
                 imageUrl: btn.dataset.img
             });
         });
+    });
+}
+
+// Helper to prevent XSS
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
     });
 }
 
@@ -182,7 +200,7 @@ async function addProduct(name, price, description, imageDataArray) {
         name, 
         price: parseFloat(price), 
         description, 
-        imageData: imageDataArray.slice(0,5) // max 5 images
+        imageData: imageDataArray.slice(0,5)
     });
     fetchProducts();
 }
@@ -196,7 +214,7 @@ async function renderAdminTable() {
     const tbody = document.getElementById('adminProductsList');
     if (!tbody) return;
     if (allProducts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.<tr></tr>';
         return;
     }
     tbody.innerHTML = allProducts.map(p => {
@@ -204,7 +222,7 @@ async function renderAdminTable() {
         return `
         <tr>
             <td><img src="${firstImg}" width="40" style="border-radius:8px;"></td>
-            <td>${p.name}</td>
+            <td>${escapeHtml(p.name)}</td>
             <td>₹${p.price?.toFixed(2)}</td>
             <td><button class="delete-product" data-id="${p.id}"><i class="fas fa-trash-alt"></i> Delete</button></td>
         </tr>
@@ -268,14 +286,14 @@ function renderCartPage() {
         total += itemTotal;
         html += `<tr>
             <td><img class="cart-item-img" src="${item.imageUrl}" alt="${item.name}"></td>
-            <td>${item.name}</td>
+            <td>${escapeHtml(item.name)}</td>
             <td>₹${item.price.toFixed(2)}</td>
             <td><input type="number" class="qty-input" data-idx="${idx}" value="${item.quantity}" min="1"></td>
             <td>₹${itemTotal.toFixed(2)}</td>
             <td><i class="fas fa-trash-alt remove-item" data-idx="${idx}"></i></td>
         </tr>`;
     });
-    html += `</tbody></table><div class="cart-total">Grand Total: ₹${total.toFixed(2)}</div>`;
+    html += `</tbody></td><div class="cart-total">Grand Total: ₹${total.toFixed(2)}</div>`;
     container.innerHTML = html;
     document.querySelectorAll('.qty-input').forEach(inp => inp.addEventListener('change', (e) => {
         const idx = parseInt(inp.dataset.idx);
@@ -307,7 +325,7 @@ async function renderMyOrders() {
                 <div><strong>Total:</strong> ₹${o.total}</div>
                 <div><strong>Payment:</strong> ${o.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI (Online)'}</div>
                 <div><strong>Status:</strong> <span class="order-status status-${o.status === 'Placed' ? 'placed' : o.status === 'Pending Payment' ? 'pending' : 'confirmed'}">${o.status}</span></div>
-                <div><strong>Address:</strong> ${o.address}</div>
+                <div><strong>Address:</strong> ${escapeHtml(o.address)}</div>
             </div>
         `).join('');
     }
@@ -321,9 +339,9 @@ async function loadPendingOrdersAdmin() {
         container.innerHTML = orders.map(o => `
             <div class="order-card">
                 <p><strong>Order ID:</strong> ${o.id.slice(0, 8)}</p>
-                <p><strong>User:</strong> ${o.userEmail}</p>
+                <p><strong>User:</strong> ${escapeHtml(o.userEmail)}</p>
                 <p><strong>Total:</strong> ₹${o.total}</p>
-                <p><strong>Items:</strong> ${o.items.map(i => i.name).join(', ')}</p>
+                <p><strong>Items:</strong> ${o.items.map(i => escapeHtml(i.name)).join(', ')}</p>
                 <button class="btn-primary confirm-payment" data-id="${o.id}">✅ Mark as Payment Received</button>
             </div>
         `).join('');
@@ -513,7 +531,6 @@ function setupAuthAndFeatures() {
             const files = Array.from(e.target.files).slice(0, 5);
             previewContainer.innerHTML = '';
             window.tempImagesBase64 = [];
-            let loadedCount = 0;
             files.forEach(file => {
                 const reader = new FileReader();
                 reader.onload = function (ev) {
@@ -525,10 +542,6 @@ function setupAuthAndFeatures() {
                     img.style.objectFit = 'cover';
                     img.style.borderRadius = '8px';
                     previewContainer.appendChild(img);
-                    loadedCount++;
-                    if (loadedCount === files.length) {
-                        // all images loaded
-                    }
                 };
                 reader.readAsDataURL(file);
             });
@@ -549,6 +562,8 @@ function setupAuthAndFeatures() {
         window.tempImagesBase64 = null;
         alert('Product added!');
     });
+    
+    // Initialize search after products are loaded (also attach listener now)
     setupSearch();
 }
 
