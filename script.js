@@ -41,6 +41,21 @@ function addToCart(product) {
     alert(`${product.name} added to cart!`);
 }
 
+// ---------- WHATSAPP NOTIFICATION (ADDED) ----------
+function sendWhatsAppNotification(itemsSummary, total, orderId, userName, mobile) {
+    const adminNumbers = ["8221826243", "7710565972"]; // Your two admin numbers (Indian numbers, will add 91 automatically)
+    const message = `🛍️ *NEW ORDER RECEIVED* 🛍️\n\nOrder ID: ${orderId}\nCustomer: ${userName}\nMobile: ${mobile}\nTotal: ₹${total}\nItems: ${itemsSummary}\n\nPlease check admin dashboard.`;
+    
+    adminNumbers.forEach(number => {
+        // Clean number and add country code 91 for India if needed
+        let cleanNumber = number.replace(/\D/g, '');
+        if (!cleanNumber.startsWith('91') && cleanNumber.length === 10) cleanNumber = '91' + cleanNumber;
+        const whatsappLink = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappLink, '_blank');
+    });
+}
+// ---------- END WHATSAPP NOTIFICATION ----------
+
 // ---------- PRODUCTS (Base64 images) ----------
 let allProducts = [];
 async function fetchProducts() {
@@ -282,6 +297,10 @@ async function initCheckout() {
         };
         try {
             await createOrder(order);
+            // ----- SEND WHATSAPP NOTIFICATION (ADDED) -----
+            const orderItemsList = order.items.map(i => `${i.name} (x${i.quantity})`).join(', ');
+            sendWhatsAppNotification(orderItemsList, order.total, order.id, name, mobile);
+            // ----- END WHATSAPP NOTIFICATION -----
             cart = [];
             saveCart();
             alert('🎉 Order placed successfully!');
