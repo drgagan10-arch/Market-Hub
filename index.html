@@ -28,11 +28,18 @@
 </nav>
 
 <div class="container">
-    <!-- Search Bar with autocomplete OFF -->
-    <div class="search-bar">
-        <i class="fas fa-search"></i>
-        <input type="text" id="searchInput" placeholder="Search products by name, description, or price..." autocomplete="off">
-    </div>
+    <!-- Search Bar with strong autocomplete prevention -->
+    <form autocomplete="off" onsubmit="return false;">
+        <div class="search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" id="searchInput" name="search" 
+                   placeholder="Search products by name, description, or price..." 
+                   autocomplete="off" 
+                   autocorrect="off" 
+                   spellcheck="false"
+                   aria-label="Search products">
+        </div>
+    </form>
     <h2><i class="fas fa-tag"></i> Trending Products</h2>
     <div id="productsContainer" class="products-grid">Loading products...</div>
 </div>
