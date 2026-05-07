@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
-import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, setDoc, getDoc, query, where, updateDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, setDoc, getDoc, query, where, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB6rFy7GfJR0CwSn-ipam2aph5aKivDiPA",
@@ -40,13 +40,13 @@ function addToCart(product) {
     alert(`${product.name} added to cart!`);
 }
 
-// ---------- PRODUCTS WITH SORTING ----------
+// ---------- PRODUCTS ----------
 let allProducts = [];
 let currentFilteredProducts = [];
 
 async function fetchProducts() {
     try {
-        // Fetch products in order of creation (newest first) using createdAt timestamp
+        // Order by createdAt descending (newest first) if available, otherwise by name
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const qSnap = await getDocs(q);
         allProducts = qSnap.docs.map(d => ({ 
@@ -54,8 +54,12 @@ async function fetchProducts() {
             ...d.data(),
             createdAt: d.data().createdAt ? d.data().createdAt.toDate() : null
         }));
+        console.log("Products loaded:", allProducts.length);
+        // Set filtered products to ALL products initially
         currentFilteredProducts = [...allProducts];
         renderProductGrid();
+        
+        // Admin & detail page logic
         if (window.location.pathname.includes('admin.html') && sessionStorage.getItem('isAdmin') === 'true') {
             renderAdminTable();
             loadPendingOrdersAdmin();
@@ -66,22 +70,24 @@ async function fetchProducts() {
     } catch (error) {
         console.error("Error fetching products:", error);
         const container = document.getElementById('productsContainer');
-        if (container) container.innerHTML = '<div>⚠️ Failed to load products. Check Firebase rules.</div>';
+        if (container) container.innerHTML = '<div>⚠️ Failed to load products. Check console and Firestore rules.</div>';
     }
 }
 
-// Search function – filters and then sorts matches by date (newest first)
+// Search function
 function performSearch(term) {
-    term = term.toLowerCase().trim();
+    term = (term || "").toLowerCase().trim();
     if (!term) {
+        // Empty search → show all products
         currentFilteredProducts = [...allProducts];
+        console.log("Empty search, showing all products:", currentFilteredProducts.length);
     } else {
         currentFilteredProducts = allProducts.filter(p => 
             p.name.toLowerCase().includes(term) ||
             (p.description && p.description.toLowerCase().includes(term)) ||
             p.price.toString().includes(term)
         );
-        // Keep them sorted by createdAt (newest first)
+        // Keep sorted by date (newest first)
         currentFilteredProducts.sort((a, b) => {
             const dateA = a.createdAt ? a.createdAt.getTime() : 0;
             const dateB = b.createdAt ? b.createdAt.getTime() : 0;
@@ -97,9 +103,11 @@ function setupSearch() {
     searchInput.addEventListener('input', (e) => {
         performSearch(e.target.value);
     });
+    // Trigger an initial search to show all products if input is empty
+    performSearch(searchInput.value);
 }
 
-// Helper: get first image from product (handles array or string)
+// Helper: get first image
 function getFirstImage(product) {
     if (!product.imageData) return 'https://via.placeholder.com/270';
     if (Array.isArray(product.imageData) && product.imageData.length > 0) return product.imageData[0];
@@ -110,10 +118,16 @@ function getFirstImage(product) {
 function renderProductGrid() {
     const container = document.getElementById('productsContainer');
     if (!container) return;
-    if (currentFilteredProducts.length === 0) {
-        container.innerHTML = '<div>✨ No products match your search.</div>';
+    
+    if (!currentFilteredProducts || currentFilteredProducts.length === 0) {
+        if (allProducts.length === 0) {
+            container.innerHTML = '<div>✨ No products yet. Admin can add some.</div>';
+        } else {
+            container.innerHTML = '<div>🔍 No products match your search.</div>';
+        }
         return;
     }
+    
     container.innerHTML = currentFilteredProducts.map(p => {
         const imgUrl = getFirstImage(p);
         return `
@@ -128,7 +142,7 @@ function renderProductGrid() {
         </div>`;
     }).join('');
     
-    // Attach events for card click (go to detail) and button click (add to cart)
+    // Attach events
     document.querySelectorAll('.product-card').forEach(card => {
         const productId = card.dataset.id;
         const btn = card.querySelector('.add-cart-btn');
@@ -253,7 +267,7 @@ function renderSimilarProducts(currentProduct) {
     });
 }
 
-// ---------- ADMIN PRODUCT MANAGEMENT (with createdAt timestamp) ----------
+// ---------- ADMIN PRODUCT MANAGEMENT ----------
 async function addProduct(name, price, description, imageDataArray) {
     if (sessionStorage.getItem('isAdmin') !== 'true') return alert("Admin only");
     await addDoc(collection(db, "products"), { 
@@ -261,7 +275,7 @@ async function addProduct(name, price, description, imageDataArray) {
         price: parseFloat(price), 
         description, 
         imageData: imageDataArray.slice(0,5),
-        createdAt: serverTimestamp()   // ensures chronological order
+        createdAt: new Date()   // store client timestamp if serverTimestamp not used
     });
     fetchProducts();
 }
@@ -291,7 +305,7 @@ async function renderAdminTable() {
     document.querySelectorAll('.delete-product').forEach(btn => btn.addEventListener('click', () => deleteProduct(btn.dataset.id)));
 }
 
-// ---------- USER PROFILE (unchanged) ----------
+// ---------- USER PROFILE (unchanged, keep yours) ----------
 let currentUser = null;
 let userProfile = { name: '', mobile: '', address: '' };
 async function fetchUserProfile(uid) {
@@ -313,7 +327,10 @@ function showProfileModalIfMissing() {
     }
 }
 
-// ---------- ORDERS ----------
+// ---------- ORDERS (keep your existing order functions) ----------
+// For brevity, keep your existing createOrder, getMyOrders, etc. 
+// I'm assuming you already have them. If not, they are below.
+
 async function createOrder(orderData) {
     await addDoc(collection(db, "orders"), { ...orderData, createdAt: new Date(), userId: currentUser.uid });
 }
@@ -414,7 +431,7 @@ async function loadPendingOrdersAdmin() {
     }));
 }
 
-// ---------- CHECKOUT ----------
+// ---------- CHECKOUT (keep your existing) ----------
 async function initCheckout() {
     if (!currentUser) {
         window.location.href = 'index.html';
@@ -498,7 +515,7 @@ function setupAuthAndFeatures() {
         fetchProducts();
     });
 
-    // Login / Signup
+    // Login / Signup (keep your existing implementation)
     document.getElementById('doLoginBtn')?.addEventListener('click', async () => {
         const email = document.getElementById('loginEmail').value;
         const pwd = document.getElementById('loginPassword').value;
@@ -582,7 +599,7 @@ function setupAuthAndFeatures() {
         window.location.href = 'index.html';
     });
 
-    // Admin add product with images (Base64)
+    // Admin add product with images
     const fileInput = document.getElementById('prodImageFiles');
     const previewContainer = document.getElementById('imagePreviews');
     if (fileInput) {
