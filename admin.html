@@ -26,10 +26,10 @@
         <div class="admin-form">
             <input type="text" id="prodName" placeholder="Product Name" required>
             <input type="number" id="prodPrice" placeholder="Price (₹)" required>
-            <textarea id="prodDesc" rows="2" placeholder="Description"></textarea>
-            <label>Product Image (upload from device)</label>
-            <input type="file" id="prodImageFile" accept="image/jpeg,image/png,image/jpg">
-            <div id="imagePreview" style="margin: 10px 0; display: none;"><img id="previewImg" style="max-width: 100px; border-radius: 12px;"></div>
+            <textarea id="prodDesc" rows="3" placeholder="Full Description" required></textarea>
+            <label>Product Images (max 5, select multiple files)</label>
+            <input type="file" id="prodImageFiles" accept="image/jpeg,image/png,image/jpg" multiple>
+            <div id="imagePreviews" style="display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0;"></div>
             <button id="addProductBtn" class="btn-primary"><i class="fas fa-plus-circle"></i> Add Product</button>
         </div>
         <div class="admin-products-list">
