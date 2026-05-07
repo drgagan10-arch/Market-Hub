@@ -28,6 +28,7 @@
 </nav>
 
 <div class="container">
+    <!-- Search Bar -->
     <div class="search-bar">
         <i class="fas fa-search"></i>
         <input type="text" id="searchInput" placeholder="Search products by name, description, or price...">
@@ -36,7 +37,7 @@
     <div id="productsContainer" class="products-grid">Loading products...</div>
 </div>
 
-<!-- Auth Modal -->
+<!-- Auth Modal (Login / Signup) -->
 <div id="authModal" class="modal">
     <div class="modal-content">
         <span class="close-modal">&times;</span>
@@ -67,7 +68,7 @@
     </div>
 </div>
 
-<!-- Admin Login Modal -->
+<!-- Admin Login Modal (Hardcoded) -->
 <div id="adminAuthModal" class="modal">
     <div class="modal-content">
         <span class="close-admin-modal">&times;</span>
@@ -79,11 +80,11 @@
     </div>
 </div>
 
-<!-- Profile Modal -->
+<!-- Profile Modal (collect name, mobile, address) -->
 <div id="profileModal" class="modal">
     <div class="modal-content">
         <span class="close-profile-modal">&times;</span>
-        <h3>Your Profile Details</h3>
+        <h3>Complete Your Profile</h3>
         <input type="text" id="profileName" placeholder="Full Name" required>
         <input type="tel" id="profileMobile" placeholder="Mobile Number" required>
         <textarea id="profileAddress" rows="3" placeholder="Delivery Address" required></textarea>
