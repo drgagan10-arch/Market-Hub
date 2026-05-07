@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard – MarketHub</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="logo"><i class="fas fa-store"></i> MarketHub Admin</div>
+    <div class="nav-links">
+        <a href="index.html" class="nav-link"><i class="fas fa-home"></i> Shop</a>
+        <a href="cart.html" class="nav-link"><i class="fas fa-shopping-cart"></i> Cart</a>
+        <button id="adminLogoutBtn" class="nav-link logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+    </div>
+</nav>
+
+<div class="container">
+    <h2><i class="fas fa-tools"></i> Admin Dashboard</h2>
+    
+    <div class="admin-section">
+        <h3>🛍️ Manage Products</h3>
+        <div class="admin-form">
+            <input type="text" id="prodName" placeholder="Product Name" required>
+            <input type="number" id="prodPrice" placeholder="Price (₹)" required>
+            <textarea id="prodDesc" rows="2" placeholder="Description"></textarea>
+            <label>Product Image (upload from device)</label>
+            <input type="file" id="prodImageFile" accept="image/jpeg,image/png,image/jpg">
+            <div id="imagePreview" style="margin: 10px 0; display: none;"><img id="previewImg" style="max-width: 100px; border-radius: 12px;"></div>
+            <button id="addProductBtn" class="btn-primary"><i class="fas fa-plus-circle"></i> Add Product</button>
+        </div>
+        <div class="admin-products-list">
+            <table id="adminProductsTable">
+                <thead><tr><th>Image</th><th>Name</th><th>Price</th><th>Action</th></tr></thead>
+                <tbody id="adminProductsList"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="admin-section">
+        <h3>💰 Pending Payment Orders (UPI)</h3>
+        <div id="pendingOrdersList" class="orders-admin-list">Loading...</div>
+    </div>
+</div>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>
