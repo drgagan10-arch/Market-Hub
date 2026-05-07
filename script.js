@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/fireba
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, setDoc, getDoc, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-// Your Firebase config (exactly as provided)
 const firebaseConfig = {
     apiKey: "AIzaSyB6rFy7GfJR0CwSn-ipam2aph5aKivDiPA",
     authDomain: "bccc-cb695.firebaseapp.com",
@@ -41,67 +40,150 @@ function addToCart(product) {
     alert(`${product.name} added to cart!`);
 }
 
-// ---------- WHATSAPP NOTIFICATION (ADDED) ----------
+// ---------- WHATSAPP NOTIFICATION ----------
 function sendWhatsAppNotification(itemsSummary, total, orderId, userName, mobile) {
-    const adminNumbers = ["8221826243", "7710565972"]; // Your two admin numbers (Indian numbers, will add 91 automatically)
+    const adminNumbers = ["8221826243", "7710565972"];
     const message = `🛍️ *NEW ORDER RECEIVED* 🛍️\n\nOrder ID: ${orderId}\nCustomer: ${userName}\nMobile: ${mobile}\nTotal: ₹${total}\nItems: ${itemsSummary}\n\nPlease check admin dashboard.`;
-    
     adminNumbers.forEach(number => {
-        // Clean number and add country code 91 for India if needed
         let cleanNumber = number.replace(/\D/g, '');
         if (!cleanNumber.startsWith('91') && cleanNumber.length === 10) cleanNumber = '91' + cleanNumber;
         const whatsappLink = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
         window.open(whatsappLink, '_blank');
     });
 }
-// ---------- END WHATSAPP NOTIFICATION ----------
 
-// ---------- PRODUCTS (Base64 images) ----------
+// ---------- PRODUCTS (with multiple images) ----------
 let allProducts = [];
+let currentFilteredProducts = [];
+
 async function fetchProducts() {
     try {
         const qSnap = await getDocs(collection(db, "products"));
         allProducts = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        currentFilteredProducts = [...allProducts];
         renderProductGrid();
         if (window.location.pathname.includes('admin.html') && sessionStorage.getItem('isAdmin') === 'true') {
             renderAdminTable();
             loadPendingOrdersAdmin();
         }
+        if (window.location.pathname.includes('product.html')) {
+            loadProductDetail();
+        }
     } catch (error) {
         console.error("Error fetching products:", error);
-        document.getElementById('productsContainer').innerHTML = '<div>⚠️ Failed to load products. Check Firebase rules.</div>';
+        const container = document.getElementById('productsContainer');
+        if (container) container.innerHTML = '<div>⚠️ Failed to load products. Check Firebase rules.</div>';
     }
 }
+
+// Search functionality
+function setupSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) return;
+    searchInput.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        if (!term.trim()) {
+            currentFilteredProducts = [...allProducts];
+        } else {
+            currentFilteredProducts = allProducts.filter(p => 
+                p.name.toLowerCase().includes(term) ||
+                (p.description && p.description.toLowerCase().includes(term)) ||
+                p.price.toString().includes(term)
+            );
+        }
+        renderProductGrid();
+    });
+}
+
 function renderProductGrid() {
     const container = document.getElementById('productsContainer');
     if (!container) return;
-    if (allProducts.length === 0) {
-        container.innerHTML = '<div>✨ No products yet. Admin can add from dashboard.</div>';
+    if (currentFilteredProducts.length === 0) {
+        container.innerHTML = '<div>✨ No products match your search.</div>';
         return;
     }
-    container.innerHTML = allProducts.map(p => `
-        <div class="product-card">
-            <img class="product-img" src="${p.imageData || p.imageUrl || 'https://via.placeholder.com/270'}" alt="${p.name}">
+    container.innerHTML = currentFilteredProducts.map(p => {
+        const firstImage = (p.imageData && p.imageData[0]) ? p.imageData[0] : (p.imageData || 'https://via.placeholder.com/270');
+        return `
+        <div class="product-card" data-product-id="${p.id}">
+            <img class="product-img" src="${firstImage}" alt="${p.name}">
             <div class="product-info">
                 <div class="product-title">${p.name}</div>
                 <div class="product-price">₹${p.price?.toFixed(2)}</div>
                 <div class="product-desc">${p.description?.substring(0,80) || ''}</div>
-                <button class="add-cart-btn" data-id="${p.id}" data-name="${p.name}" data-price="${p.price}" data-img="${p.imageData || p.imageUrl}"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+                <button class="add-cart-btn" data-id="${p.id}" data-name="${p.name}" data-price="${p.price}" data-img="${firstImage}"><i class="fas fa-cart-plus"></i> Add to Cart</button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
+    // Make product card clickable (except on button)
+    document.querySelectorAll('.product-card').forEach(card => {
+        const productId = card.dataset.productId;
+        const btn = card.querySelector('.add-cart-btn');
+        card.addEventListener('click', (e) => {
+            if (e.target !== btn && !btn.contains(e.target)) {
+                window.location.href = `product.html?id=${productId}`;
+            }
+        });
+        card.style.cursor = 'pointer';
+    });
     document.querySelectorAll('.add-cart-btn').forEach(btn => {
-        btn.addEventListener('click', () => addToCart({
-            id: btn.dataset.id,
-            name: btn.dataset.name,
-            price: parseFloat(btn.dataset.price),
-            imageUrl: btn.dataset.img
-        }));
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            addToCart({
+                id: btn.dataset.id,
+                name: btn.dataset.name,
+                price: parseFloat(btn.dataset.price),
+                imageUrl: btn.dataset.img
+            });
+        });
     });
 }
-async function addProduct(name, price, description, imageData) {
+
+// Product detail page
+async function loadProductDetail() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get('id');
+    if (!productId) {
+        document.getElementById('productDetail').style.display = 'none';
+        document.getElementById('productNotFound').style.display = 'block';
+        return;
+    }
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) {
+        document.getElementById('productDetail').style.display = 'none';
+        document.getElementById('productNotFound').style.display = 'block';
+        return;
+    }
+    const images = product.imageData && Array.isArray(product.imageData) ? product.imageData : (product.imageData ? [product.imageData] : ['https://via.placeholder.com/400']);
+    document.getElementById('productName').innerText = product.name;
+    document.getElementById('productPrice').innerHTML = `₹${product.price?.toFixed(2)}`;
+    document.getElementById('productDescription').innerText = product.description || 'No description available.';
+    document.getElementById('mainProductImage').src = images[0];
+    const thumbContainer = document.getElementById('thumbnailList');
+    thumbContainer.innerHTML = images.map((img, idx) => `<img src="${img}" data-index="${idx}" class="thumbnail">`).join('');
+    document.querySelectorAll('.thumbnail').forEach(thumb => {
+        thumb.addEventListener('click', () => {
+            document.getElementById('mainProductImage').src = thumb.src;
+        });
+    });
+    document.getElementById('detailAddToCartBtn').addEventListener('click', () => {
+        addToCart({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            imageUrl: images[0]
+        });
+    });
+}
+
+async function addProduct(name, price, description, imageDataArray) {
     if (sessionStorage.getItem('isAdmin') !== 'true') return alert("Admin only");
-    await addDoc(collection(db, "products"), { name, price: parseFloat(price), description, imageData });
+    await addDoc(collection(db, "products"), { 
+        name, 
+        price: parseFloat(price), 
+        description, 
+        imageData: imageDataArray.slice(0,5) // max 5 images
+    });
     fetchProducts();
 }
 async function deleteProduct(id) {
@@ -114,17 +196,19 @@ async function renderAdminTable() {
     const tbody = document.getElementById('adminProductsList');
     if (!tbody) return;
     if (allProducts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.<tr></tr>';
+        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.</td></tr>';
         return;
     }
-    tbody.innerHTML = allProducts.map(p => `
+    tbody.innerHTML = allProducts.map(p => {
+        const firstImg = (p.imageData && p.imageData[0]) ? p.imageData[0] : 'https://via.placeholder.com/40';
+        return `
         <tr>
-            <td><img src="${p.imageData || 'https://via.placeholder.com/40'}" width="40" style="border-radius:8px;"></td>
+            <td><img src="${firstImg}" width="40" style="border-radius:8px;"></td>
             <td>${p.name}</td>
             <td>₹${p.price?.toFixed(2)}</td>
             <td><button class="delete-product" data-id="${p.id}"><i class="fas fa-trash-alt"></i> Delete</button></td>
         </tr>
-    `).join('');
+    `}).join('');
     document.querySelectorAll('.delete-product').forEach(btn => btn.addEventListener('click', () => deleteProduct(btn.dataset.id)));
 }
 
@@ -169,7 +253,7 @@ async function confirmPayment(orderId) {
     if (window.location.pathname.includes('admin.html')) loadPendingOrdersAdmin();
 }
 
-// ---------- PAGE RENDERING ----------
+// ---------- PAGE RENDERING (cart, orders, admin) ----------
 function renderCartPage() {
     const container = document.getElementById('cartContainer');
     if (!container) return;
@@ -297,10 +381,8 @@ async function initCheckout() {
         };
         try {
             await createOrder(order);
-            // ----- SEND WHATSAPP NOTIFICATION (ADDED) -----
             const orderItemsList = order.items.map(i => `${i.name} (x${i.quantity})`).join(', ');
             sendWhatsAppNotification(orderItemsList, order.total, order.id, name, mobile);
-            // ----- END WHATSAPP NOTIFICATION -----
             cart = [];
             saveCart();
             alert('🎉 Order placed successfully!');
@@ -423,37 +505,51 @@ function setupAuthAndFeatures() {
         window.location.href = 'index.html';
     });
 
-    // Admin add product with image (Base64)
-    const fileInput = document.getElementById('prodImageFile');
+    // Admin add product with multiple images (max 5)
+    const fileInput = document.getElementById('prodImageFiles');
+    const previewContainer = document.getElementById('imagePreviews');
     if (fileInput) {
         fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
+            const files = Array.from(e.target.files).slice(0, 5);
+            previewContainer.innerHTML = '';
+            window.tempImagesBase64 = [];
+            let loadedCount = 0;
+            files.forEach(file => {
                 const reader = new FileReader();
                 reader.onload = function (ev) {
-                    document.getElementById('imagePreview').style.display = 'block';
-                    document.getElementById('previewImg').src = ev.target.result;
-                    window.tempImageBase64 = ev.target.result;
+                    window.tempImagesBase64.push(ev.target.result);
+                    const img = document.createElement('img');
+                    img.src = ev.target.result;
+                    img.style.width = '80px';
+                    img.style.height = '80px';
+                    img.style.objectFit = 'cover';
+                    img.style.borderRadius = '8px';
+                    previewContainer.appendChild(img);
+                    loadedCount++;
+                    if (loadedCount === files.length) {
+                        // all images loaded
+                    }
                 };
                 reader.readAsDataURL(file);
-            }
+            });
         });
     }
     document.getElementById('addProductBtn')?.addEventListener('click', async () => {
         const name = document.getElementById('prodName').value.trim();
         const price = document.getElementById('prodPrice').value;
         const desc = document.getElementById('prodDesc').value.trim();
-        const imgData = window.tempImageBase64;
-        if (!name || !price || !imgData) return alert('Please fill all fields and select an image');
-        await addProduct(name, price, desc, imgData);
+        const images = window.tempImagesBase64 || [];
+        if (!name || !price || images.length === 0) return alert('Please fill all fields and select at least one image');
+        await addProduct(name, price, desc, images);
         document.getElementById('prodName').value = '';
         document.getElementById('prodPrice').value = '';
         document.getElementById('prodDesc').value = '';
         fileInput.value = '';
-        document.getElementById('imagePreview').style.display = 'none';
-        window.tempImageBase64 = null;
+        previewContainer.innerHTML = '';
+        window.tempImagesBase64 = null;
         alert('Product added!');
     });
+    setupSearch();
 }
 
 // Start everything
