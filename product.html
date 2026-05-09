@@ -11,10 +11,13 @@
 
 <nav class="navbar">
     <div class="logo"><i class="fas fa-store"></i> MarketHub</div>
-    <div class="nav-links">
+    <div class="hamburger" id="hamburger"><i class="fas fa-bars"></i></div>
+    <div class="nav-links" id="navLinks">
         <a href="index.html" class="nav-link"><i class="fas fa-home"></i> Shop</a>
         <a href="cart.html" class="nav-link"><i class="fas fa-shopping-cart"></i> Cart <span id="cartNavCount" class="cart-count">0</span></a>
         <a href="myorders.html" class="nav-link"><i class="fas fa-list-ul"></i> My Orders</a>
+        <a href="customercare.html" class="nav-link"><i class="fas fa-headset"></i> Customer Care</a>
+        <a href="policies.html" class="nav-link"><i class="fas fa-file-alt"></i> Policies</a>
         <div id="userInfoArea" style="display: flex;"><span id="userGreeting" class="user-greeting"></span><button id="logoutBtn" class="nav-link logout-btn">Logout</button></div>
     </div>
 </nav>
@@ -22,21 +25,18 @@
 <div class="container product-detail-container">
     <div id="productDetail" class="product-detail">
         <div class="product-gallery">
-            <div class="main-image">
-                <img id="mainProductImage" src="" alt="Product Image">
-            </div>
+            <div class="main-image"><img id="mainProductImage" src="" alt="Product Image"></div>
             <div id="thumbnailList" class="thumbnail-list"></div>
         </div>
         <div class="product-info-detail">
             <h1 id="productName"></h1>
             <div class="product-price-detail" id="productPrice"></div>
+            <div class="product-stock-detail" id="productStock"></div>
             <div class="product-description-full" id="productDescription"></div>
             <button id="detailAddToCartBtn" class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add to Cart</button>
         </div>
     </div>
     <div id="productNotFound" style="display:none; text-align:center; padding:2rem;">Product not found.</div>
-    
-    <!-- Similar Products Section -->
     <div class="similar-products-section">
         <h3><i class="fas fa-tachometer-alt"></i> More Equipment You May Like</h3>
         <div id="similarProductsContainer" class="similar-products-grid"></div>
