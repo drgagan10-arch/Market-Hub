@@ -11,10 +11,13 @@
 
 <nav class="navbar">
     <div class="logo"><i class="fas fa-store"></i> MarketHub</div>
-    <div class="nav-links">
+    <div class="hamburger" id="hamburger"><i class="fas fa-bars"></i></div>
+    <div class="nav-links" id="navLinks">
         <a href="index.html" class="nav-link"><i class="fas fa-home"></i> Shop</a>
         <a href="cart.html" class="nav-link active"><i class="fas fa-shopping-cart"></i> Cart <span id="cartNavCount" class="cart-count">0</span></a>
         <a href="myorders.html" class="nav-link"><i class="fas fa-list-ul"></i> My Orders</a>
+        <a href="customercare.html" class="nav-link"><i class="fas fa-headset"></i> Customer Care</a>
+        <a href="policies.html" class="nav-link"><i class="fas fa-file-alt"></i> Policies</a>
         <button id="adminLoginBtn" class="nav-link admin-login-btn"><i class="fas fa-user-shield"></i> Admin</button>
         <div id="userAuthArea">
             <button id="loginModalBtn" class="nav-link auth-btn"><i class="fas fa-sign-in-alt"></i> Login</button>
@@ -34,10 +37,10 @@
     </div>
 </div>
 
-<!-- Modals (same as index) -->
-<div id="authModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><div id="loginForm"><h3>Login</h3><input type="email" id="loginEmail" placeholder="Email"><input type="password" id="loginPassword" placeholder="Password"><button id="doLoginBtn" class="btn-primary">Login</button><div class="google-signin"><button id="googleLoginBtn" class="btn-google"><i class="fab fa-google"></i> Sign in with Google</button></div><p>New user? <a href="#" id="switchToSignup">Create account</a></p></div><div id="signupForm" style="display: none;"><h3>Create Account</h3><input type="text" id="signupName" placeholder="Full Name"><input type="email" id="signupEmail" placeholder="Email"><input type="password" id="signupPassword" placeholder="Password"><input type="tel" id="signupMobile" placeholder="Mobile Number"><textarea id="signupAddress" rows="2" placeholder="Full Address"></textarea><button id="doSignupBtn" class="btn-primary">Sign Up</button><div class="google-signin"><button id="googleSignupBtn" class="btn-google"><i class="fab fa-google"></i> Sign up with Google</button></div><p>Already have account? <a href="#" id="switchToLogin">Login</a></p></div><div id="authMessage" class="auth-message"></div></div></div>
-<div id="adminAuthModal" class="modal"><div class="modal-content"><span class="close-admin-modal">&times;</span><h3>Admin Login</h3><input type="text" id="adminUsername" placeholder="Username"><input type="password" id="adminPassword" placeholder="Password"><button id="doAdminLoginBtn" class="btn-primary">Login as Admin</button><div id="adminMessage" class="auth-message"></div></div></div>
-<div id="profileModal" class="modal"><div class="modal-content"><span class="close-profile-modal">&times;</span><h3>Your Profile Details</h3><input type="text" id="profileName" placeholder="Full Name"><input type="tel" id="profileMobile" placeholder="Mobile Number"><textarea id="profileAddress" rows="3" placeholder="Delivery Address"></textarea><button id="saveProfileBtn" class="btn-primary">Save Details</button></div></div>
+<!-- Modals -->
+<div id="authModal" class="modal">...</div>
+<div id="adminAuthModal" class="modal">...</div>
+<div id="profileModal" class="modal">...</div>
 
 <script type="module" src="script.js"></script>
 </body>
