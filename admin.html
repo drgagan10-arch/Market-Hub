@@ -11,7 +11,8 @@
 
 <nav class="navbar">
     <div class="logo"><i class="fas fa-store"></i> MarketHub Admin</div>
-    <div class="nav-links">
+    <div class="hamburger" id="hamburger"><i class="fas fa-bars"></i></div>
+    <div class="nav-links" id="navLinks">
         <a href="index.html" class="nav-link"><i class="fas fa-home"></i> Shop</a>
         <a href="cart.html" class="nav-link"><i class="fas fa-shopping-cart"></i> Cart</a>
         <button id="adminLogoutBtn" class="nav-link logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
@@ -26,6 +27,7 @@
         <div class="admin-form">
             <input type="text" id="prodName" placeholder="Product Name" required>
             <input type="number" id="prodPrice" placeholder="Price (₹)" required>
+            <input type="number" id="prodStock" placeholder="Initial Stock Quantity" required min="0">
             <textarea id="prodDesc" rows="3" placeholder="Full Description" required></textarea>
             <label>Product Images (max 5, select multiple files)</label>
             <input type="file" id="prodImageFiles" accept="image/jpeg,image/png,image/jpg" multiple>
@@ -34,14 +36,14 @@
         </div>
         <div class="admin-products-list">
             <table id="adminProductsTable">
-                <thead><tr><th>Image</th><th>Name</th><th>Price</th><th>Action</th></tr></thead>
+                <thead><tr><th>Image</th><th>Name</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead>
                 <tbody id="adminProductsList"></tbody>
             </table>
         </div>
     </div>
 
     <div class="admin-section">
-        <h3>💰 Pending Payment Orders (UPI)</h3>
+        <h3>💰 Pending Orders (COD & UPI)</h3>
         <div id="pendingOrdersList" class="orders-admin-list">Loading...</div>
     </div>
 </div>
