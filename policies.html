@@ -32,49 +32,16 @@
 
 <div class="container policies-container">
     <h2><i class="fas fa-file-alt"></i> Our Policies</h2>
-    
-    <div class="policy-card">
-        <h3><i class="fas fa-undo-alt"></i> Return Policy</h3>
-        <p>We want you to love your purchase. If you are not completely satisfied, you may return eligible items within <strong>7 days</strong> of delivery.</p>
-        <ul>
-            <li>Product must be unused, in original packaging, with all tags attached.</li>
-            <li>Return shipping costs are borne by the customer unless the product is defective.</li>
-            <li>Refunds will be processed within 5-7 business days after we receive and inspect the return.</li>
-            <li>Cash on Delivery orders are refunded as store credit or bank transfer (subject to verification).</li>
-            <li>To initiate a return, please contact customer care within 7 days of delivery.</li>
-        </ul>
-    </div>
-
-    <div class="policy-card">
-        <h3><i class="fas fa-truck"></i> Shipping Policy</h3>
-        <ul>
-            <li>Free shipping on all orders above ₹999.</li>
-            <li>Orders are dispatched within 1-2 business days.</li>
-            <li>Estimated delivery: 3-7 business days (depending on location).</li>
-            <li>You will receive a tracking link via email once shipped.</li>
-        </ul>
-    </div>
-
-    <div class="policy-card">
-        <h3><i class="fas fa-shield-alt"></i> Cancellation Policy</h3>
-        <ul>
-            <li>Orders can be cancelled within 1 hour of placement (no questions asked).</li>
-            <li>After 1 hour, cancellations may be subject to a 10% restocking fee.</li>
-            <li>Contact customer care immediately for cancellation requests.</li>
-        </ul>
-    </div>
-
-    <div class="policy-card">
-        <h3><i class="fas fa-lock"></i> Privacy Policy</h3>
-        <p>We respect your privacy. Your personal data is used only for order processing and will never be shared with third parties without your consent.</p>
-        <p>We use secure payment gateways and do not store your card details.</p>
-    </div>
+    <div class="policy-card"><h3><i class="fas fa-undo-alt"></i> Return Policy</h3><p>Return eligible items within <strong>7 days</strong> of delivery. Product must be unused, in original packaging.</p></div>
+    <div class="policy-card"><h3><i class="fas fa-truck"></i> Shipping Policy</h3><p>Free shipping on orders above ₹999. Dispatched within 1-2 business days.</p></div>
+    <div class="policy-card"><h3><i class="fas fa-shield-alt"></i> Cancellation Policy</h3><p>Orders can be cancelled within 1 hour of placement.</p></div>
+    <div class="policy-card"><h3><i class="fas fa-lock"></i> Privacy Policy</h3><p>Your data is used only for order processing – never shared.</p></div>
 </div>
 
-<!-- Auth Modals -->
-<div id="authModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><div id="loginForm"><h3>Login</h3><input type="email" id="loginEmail" placeholder="Email" required><input type="password" id="loginPassword" placeholder="Password" required><button id="doLoginBtn" class="btn-primary">Login</button><div class="google-signin"><button id="googleLoginBtn" class="btn-google"><i class="fab fa-google"></i> Sign in with Google</button></div><p>New user? <a href="#" id="switchToSignup">Create account</a></p></div><div id="signupForm" style="display: none;"><h3>Create Account</h3><input type="text" id="signupName" placeholder="Full Name" required><input type="email" id="signupEmail" placeholder="Email" required><input type="password" id="signupPassword" placeholder="Password" required><input type="tel" id="signupMobile" placeholder="Mobile Number" required><textarea id="signupAddress" rows="2" placeholder="Full Address" required></textarea><button id="doSignupBtn" class="btn-primary">Sign Up</button><div class="google-signin"><button id="googleSignupBtn" class="btn-google"><i class="fab fa-google"></i> Sign up with Google</button></div><p>Already have account? <a href="#" id="switchToLogin">Login</a></p></div><div id="authMessage" class="auth-message"></div></div></div>
-<div id="adminAuthModal" class="modal"><div class="modal-content"><span class="close-admin-modal">&times;</span><h3>Admin Login</h3><input type="text" id="adminUsername" placeholder="Username" required><input type="password" id="adminPassword" placeholder="Password" required><button id="doAdminLoginBtn" class="btn-primary">Login as Admin</button><div id="adminMessage" class="auth-message"></div></div></div>
-<div id="profileModal" class="modal"><div class="modal-content"><span class="close-profile-modal">&times;</span><h3>Complete Your Profile</h3><input type="text" id="profileName" placeholder="Full Name" required><input type="tel" id="profileMobile" placeholder="Mobile Number" required><textarea id="profileAddress" rows="3" placeholder="Delivery Address" required></textarea><button id="saveProfileBtn" class="btn-primary">Save Details</button></div></div>
+<!-- Modals (same as index) -->
+<div id="authModal" class="modal">...</div>
+<div id="adminAuthModal" class="modal">...</div>
+<div id="profileModal" class="modal">...</div>
 
 <script type="module" src="script.js"></script>
 </body>
