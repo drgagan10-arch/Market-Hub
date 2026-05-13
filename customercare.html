@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Customer Care – MarketHub</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="logo"><i class="fas fa-store"></i> MarketHub</div>
+    <div class="hamburger" id="hamburger"><i class="fas fa-bars"></i></div>
+    <div class="nav-links" id="navLinks">
+        <a href="index.html" class="nav-link"><i class="fas fa-home"></i> Shop</a>
+        <a href="cart.html" class="nav-link"><i class="fas fa-shopping-cart"></i> Cart <span id="cartNavCount" class="cart-count">0</span></a>
+        <a href="myorders.html" class="nav-link"><i class="fas fa-list-ul"></i> My Orders</a>
+        <a href="customercare.html" class="nav-link active"><i class="fas fa-headset"></i> Customer Care</a>
+        <a href="policies.html" class="nav-link"><i class="fas fa-file-alt"></i> Policies</a>
+        <button id="adminLoginBtn" class="nav-link admin-login-btn"><i class="fas fa-user-shield"></i> Admin</button>
+        <div id="userAuthArea">
+            <button id="loginModalBtn" class="nav-link auth-btn"><i class="fas fa-sign-in-alt"></i> Login</button>
+            <button id="signupModalBtn" class="nav-link auth-btn"><i class="fas fa-user-plus"></i> Sign Up</button>
+        </div>
+        <div id="userInfoArea" style="display: none;">
+            <span id="userGreeting" class="user-greeting"></span>
+            <button id="logoutBtn" class="nav-link logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container customer-care-container">
+    <h2><i class="fas fa-headset"></i> Customer Care</h2>
+    <div class="care-card">
+        <div class="care-option">
+            <i class="fas fa-phone-alt fa-3x"></i>
+            <h3>Call Us</h3>
+            <p>Speak with our support team</p>
+            <a href="tel:+91822826243" class="call-btn"><i class="fas fa-phone"></i> Call Now: +91 822826243</a>
+            <small>Available: Mon-Sat, 10 AM - 7 PM</small>
+        </div>
+        <div class="care-option">
+            <i class="fas fa-envelope fa-3x"></i>
+            <h3>Email Us</h3>
+            <p>We’ll respond within 24 hours</p>
+            <a href="mailto:drgagan.10@gmail.com" class="email-btn"><i class="fas fa-envelope"></i> drgagan.10@gmail.com</a>
+        </div>
+    </div>
+    <div class="faq-section">
+        <h3>Frequently Asked Questions</h3>
+        <div class="faq-item"><strong>How long does delivery take?</strong><p>Usually 3-5 business days after order confirmation.</p></div>
+        <div class="faq-item"><strong>Can I cancel my order?</strong><p>Yes, within 1 hour of placing the order. Contact customer care.</p></div>
+        <div class="faq-item"><strong>Is Cash on Delivery available?</strong><p>Yes, COD is available for all orders.</p></div>
+        <div class="faq-item"><strong>How do I track my order?</strong><p>You can view order status in "My Orders" after logging in.</p></div>
+    </div>
+</div>
+
+<!-- Auth Modals -->
+<div id="authModal" class="modal"><div class="modal-content"><span class="close-modal">&times;</span><div id="loginForm"><h3>Login</h3><input type="email" id="loginEmail" placeholder="Email" required><input type="password" id="loginPassword" placeholder="Password" required><button id="doLoginBtn" class="btn-primary">Login</button><div class="google-signin"><button id="googleLoginBtn" class="btn-google"><i class="fab fa-google"></i> Sign in with Google</button></div><p>New user? <a href="#" id="switchToSignup">Create account</a></p></div><div id="signupForm" style="display: none;"><h3>Create Account</h3><input type="text" id="signupName" placeholder="Full Name" required><input type="email" id="signupEmail" placeholder="Email" required><input type="password" id="signupPassword" placeholder="Password" required><input type="tel" id="signupMobile" placeholder="Mobile Number" required><textarea id="signupAddress" rows="2" placeholder="Full Address" required></textarea><button id="doSignupBtn" class="btn-primary">Sign Up</button><div class="google-signin"><button id="googleSignupBtn" class="btn-google"><i class="fab fa-google"></i> Sign up with Google</button></div><p>Already have account? <a href="#" id="switchToLogin">Login</a></p></div><div id="authMessage" class="auth-message"></div></div></div>
+<div id="adminAuthModal" class="modal"><div class="modal-content"><span class="close-admin-modal">&times;</span><h3>Admin Login</h3><input type="text" id="adminUsername" placeholder="Username" required><input type="password" id="adminPassword" placeholder="Password" required><button id="doAdminLoginBtn" class="btn-primary">Login as Admin</button><div id="adminMessage" class="auth-message"></div></div></div>
+<div id="profileModal" class="modal"><div class="modal-content"><span class="close-profile-modal">&times;</span><h3>Complete Your Profile</h3><input type="text" id="profileName" placeholder="Full Name" required><input type="tel" id="profileMobile" placeholder="Mobile Number" required><textarea id="profileAddress" rows="3" placeholder="Delivery Address" required></textarea><button id="saveProfileBtn" class="btn-primary">Save Details</button></div></div>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>
