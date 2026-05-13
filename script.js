@@ -59,7 +59,12 @@ async function fetchProducts() {
     try {
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const qSnap = await getDocs(q);
-        allProducts = qSnap.docs.map(d => ({ id: d.id, ...d.data(), stock: d.data().stock ?? 0 }));
+        allProducts = qSnap.docs.map(d => ({ 
+            id: d.id, 
+            ...d.data(), 
+            stock: d.data().stock ?? 100   // <-- FIX: default stock 100 if missing
+        }));
+        console.log("Products loaded:", allProducts.length);
         currentFilteredProducts = [...allProducts];
         renderProductGrid();
         if (window.location.pathname.includes('admin.html') && sessionStorage.getItem('isAdmin') === 'true') {
@@ -330,9 +335,8 @@ function showProfileModalIfMissing() {
     }
 }
 
-// ---------- ORDERS WITH CORRECT STATUS & ADMIN PENDING ----------
+// ---------- ORDERS ----------
 async function createOrder(orderData) {
-    // Use transaction to decrement stock and add order
     await runTransaction(db, async (transaction) => {
         for (const item of orderData.items) {
             const productRef = doc(db, "products", item.id);
@@ -343,30 +347,25 @@ async function createOrder(orderData) {
             transaction.update(productRef, { stock: currentStock - item.quantity });
         }
         const orderRef = doc(collection(db, "orders"));
-        // IMPORTANT: status is exactly "Pending" (capital P)
         transaction.set(orderRef, { ...orderData, status: "Pending", createdAt: new Date(), userId: currentUser.uid });
     });
 }
-
 async function getMyOrders() {
     const q = query(collection(db, "orders"), where("userId", "==", currentUser.uid));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
-
 async function getPendingOrders() {
-    // Important: query status == "Pending"
     const q = query(collection(db, "orders"), where("status", "==", "Pending"));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
-
 async function confirmPayment(orderId) {
     await updateDoc(doc(db, "orders", orderId), { status: "Confirmed" });
     if (window.location.pathname.includes('admin.html')) loadPendingOrdersAdmin();
 }
 
-// ---------- CART PAGE RENDERING ----------
+// ---------- CART PAGE ----------
 function renderCartPage() {
     const container = document.getElementById('cartContainer');
     if (!container) return;
@@ -388,7 +387,7 @@ function renderCartPage() {
             <td><i class="fas fa-trash-alt remove-item" data-idx="${idx}"></i></td>
         </tr>`;
     });
-    html += `</tbody></table><div class="cart-total">Grand Total: ₹${total.toFixed(2)}</div>`;
+    html += `</tbody><tr><div class="cart-total">Grand Total: ₹${total.toFixed(2)}</div>`;
     container.innerHTML = html;
     document.querySelectorAll('.qty-input').forEach(inp => inp.addEventListener('change', (e) => {
         const idx = parseInt(inp.dataset.idx);
@@ -414,7 +413,6 @@ function renderCartPage() {
         else alert('Please login first');
     });
 }
-
 async function renderMyOrders() {
     const container = document.getElementById('ordersList');
     if (!container) return;
@@ -437,7 +435,6 @@ async function renderMyOrders() {
         `).join('');
     }
 }
-
 async function loadPendingOrdersAdmin() {
     const container = document.getElementById('pendingOrdersList');
     if (!container) return;
@@ -503,7 +500,6 @@ async function initCheckout() {
             address: address,
             mobile: mobile,
             paymentMethod: method,
-            // STATUS IS "Pending" (capital P)
             status: "Pending"
         };
         try {
