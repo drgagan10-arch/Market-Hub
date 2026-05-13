@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
-import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, setDoc, getDoc, query, where, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, setDoc, getDoc, query, where, updateDoc, orderBy, runTransaction } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB6rFy7GfJR0CwSn-ipam2aph5aKivDiPA",
@@ -30,33 +30,38 @@ function updateCartBadge() {
     document.querySelectorAll('#cartNavCount').forEach(el => el.innerText = total);
 }
 function addToCart(product) {
+    if (product.stock <= 0) {
+        alert(`${product.name} is out of stock!`);
+        return false;
+    }
     const existing = cart.find(i => i.id === product.id);
-    if (existing) existing.quantity++;
-    else cart.push({ ...product, quantity: 1 });
+    if (existing) {
+        if (existing.quantity + 1 > product.stock) {
+            alert(`Only ${product.stock} left in stock.`);
+            return false;
+        }
+        existing.quantity++;
+    } else {
+        cart.push({ ...product, quantity: 1 });
+    }
     saveCart();
     alert(`${product.name} added to cart!`);
+    return true;
 }
 
-// ---------- LOADING SPINNER HELPERS ----------
-function showSpinner(containerId) {
-    const container = document.getElementById(containerId);
-    if (container) container.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
-}
-function hideSpinner(containerId) { /* not needed because we replace content */ }
-
-// ---------- PRODUCTS (with spinner) ----------
+// ---------- PRODUCTS ----------
 let allProducts = [];
 let currentFilteredProducts = [];
 
 async function fetchProducts() {
-    showSpinner('productsContainer');
+    const container = document.getElementById('productsContainer');
+    if (container) container.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
     try {
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const qSnap = await getDocs(q);
-        allProducts = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        allProducts = qSnap.docs.map(d => ({ id: d.id, ...d.data(), stock: d.data().stock ?? 0 }));
         currentFilteredProducts = [...allProducts];
         renderProductGrid();
-        
         if (window.location.pathname.includes('admin.html') && sessionStorage.getItem('isAdmin') === 'true') {
             renderAdminTable();
             loadPendingOrdersAdmin();
@@ -66,8 +71,7 @@ async function fetchProducts() {
         }
     } catch (error) {
         console.error(error);
-        const container = document.getElementById('productsContainer');
-        if (container) container.innerHTML = '<div>⚠️ Failed to load products. Check console.</div>';
+        if (container) container.innerHTML = '<div>⚠️ Failed to load products.</div>';
     }
 }
 
@@ -80,11 +84,6 @@ function performSearch(term) {
             (p.description && p.description.toLowerCase().includes(term)) ||
             p.price.toString().includes(term)
         );
-        currentFilteredProducts.sort((a, b) => {
-            const dateA = a.createdAt?.toDate?.() || new Date(0);
-            const dateB = b.createdAt?.toDate?.() || new Date(0);
-            return dateB - dateA;
-        });
     }
     renderProductGrid();
 }
@@ -107,6 +106,12 @@ function getFirstImage(product) {
     return 'https://via.placeholder.com/270';
 }
 
+function getStockStatus(stock) {
+    if (stock <= 0) return { text: 'Out of Stock', class: 'stock-outofstock', disabled: true };
+    if (stock < 5) return { text: `Only ${stock} left`, class: 'stock-lowstock', disabled: false };
+    return { text: `In Stock (${stock})`, class: 'stock-instock', disabled: false };
+}
+
 function renderProductGrid() {
     const container = document.getElementById('productsContainer');
     if (!container) return;
@@ -117,14 +122,16 @@ function renderProductGrid() {
     }
     container.innerHTML = currentFilteredProducts.map(p => {
         const imgUrl = getFirstImage(p);
+        const stockStatus = getStockStatus(p.stock);
         return `
         <div class="product-card" data-id="${p.id}">
             <img class="product-img" src="${imgUrl}" alt="${escapeHtml(p.name)}">
             <div class="product-info">
                 <div class="product-title">${escapeHtml(p.name)}</div>
                 <div class="product-price">₹${p.price?.toFixed(2)}</div>
+                <div class="stock-badge ${stockStatus.class}">${stockStatus.text}</div>
                 <div class="product-desc">${escapeHtml(p.description?.substring(0,80) || '')}</div>
-                <button class="add-cart-btn" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-price="${p.price}" data-img="${imgUrl}"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+                <button class="add-cart-btn" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-price="${p.price}" data-img="${imgUrl}" data-stock="${p.stock}" ${stockStatus.disabled ? 'disabled' : ''}><i class="fas fa-cart-plus"></i> ${stockStatus.disabled ? 'Out of Stock' : 'Add to Cart'}</button>
             </div>
         </div>`;
     }).join('');
@@ -137,21 +144,17 @@ function renderProductGrid() {
             window.location.href = `product.html?id=${productId}`;
         });
         card.style.cursor = 'pointer';
-        if (btn) {
+        if (btn && !btn.disabled) {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                addToCart({
-                    id: btn.dataset.id,
-                    name: btn.dataset.name,
-                    price: parseFloat(btn.dataset.price),
-                    imageUrl: btn.dataset.img
-                });
+                const product = allProducts.find(p => p.id === productId);
+                if (product) addToCart(product);
             });
         }
     });
 }
 
-// ---------- PRODUCT DETAIL PAGE (with spinner) ----------
+// ---------- PRODUCT DETAIL PAGE ----------
 async function loadProductDetail() {
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get('id');
@@ -160,10 +163,8 @@ async function loadProductDetail() {
         document.getElementById('productNotFound').style.display = 'block';
         return;
     }
-    // Show spinner on main content
     const detailContainer = document.getElementById('productDetail');
     if (detailContainer) detailContainer.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
-    
     if (allProducts.length === 0) {
         setTimeout(() => loadProductDetail(), 300);
         return;
@@ -174,7 +175,6 @@ async function loadProductDetail() {
         document.getElementById('productNotFound').style.display = 'block';
         return;
     }
-    
     let images = [];
     if (product.imageData) {
         if (Array.isArray(product.imageData)) images = product.imageData;
@@ -183,8 +183,7 @@ async function loadProductDetail() {
     }
     if (images.length === 0) images = ['https://via.placeholder.com/400?text=No+Image'];
     images = images.slice(0, 5);
-    
-    // Rebuild detail HTML (spinner replaced)
+    const stockStatus = getStockStatus(product.stock);
     document.getElementById('productDetail').innerHTML = `
         <div class="product-gallery">
             <div class="main-image"><img id="mainProductImage" src="${images[0]}" alt="${escapeHtml(product.name)}"></div>
@@ -193,8 +192,9 @@ async function loadProductDetail() {
         <div class="product-info-detail">
             <h1 id="productName">${escapeHtml(product.name)}</h1>
             <div class="product-price-detail" id="productPrice">₹${product.price?.toFixed(2)}</div>
+            <div class="product-stock-detail"><span class="stock-badge ${stockStatus.class}">${stockStatus.text}</span></div>
             <div class="product-description-full" id="productDescription">${escapeHtml(product.description || 'No description available.')}</div>
-            <button id="detailAddToCartBtn" class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add to Cart</button>
+            <button id="detailAddToCartBtn" class="add-cart-btn" ${stockStatus.disabled ? 'disabled' : ''}><i class="fas fa-cart-plus"></i> ${stockStatus.disabled ? 'Out of Stock' : 'Add to Cart'}</button>
         </div>
     `;
     const thumbContainer = document.getElementById('thumbnailList');
@@ -207,14 +207,9 @@ async function loadProductDetail() {
         });
     }
     const addBtn = document.getElementById('detailAddToCartBtn');
-    if (addBtn) {
+    if (addBtn && !addBtn.disabled) {
         addBtn.addEventListener('click', () => {
-            addToCart({
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                imageUrl: images[0]
-            });
+            addToCart(product);
         });
     }
     renderSimilarProducts(product);
@@ -231,13 +226,15 @@ function renderSimilarProducts(currentProduct) {
     }
     container.innerHTML = similar.map(p => {
         const imgUrl = getFirstImage(p);
+        const stockStatus = getStockStatus(p.stock);
         return `
             <div class="similar-product-card" data-id="${p.id}">
                 <img src="${imgUrl}" alt="${escapeHtml(p.name)}">
                 <div class="similar-product-info">
                     <div class="similar-product-title">${escapeHtml(p.name)}</div>
                     <div class="similar-product-price">₹${p.price?.toFixed(2)}</div>
-                    <button class="similar-add-cart-btn" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-price="${p.price}" data-img="${imgUrl}">Add to Cart</button>
+                    <div class="stock-badge ${stockStatus.class}" style="font-size:0.7rem;">${stockStatus.text}</div>
+                    <button class="similar-add-cart-btn" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-price="${p.price}" data-img="${imgUrl}" data-stock="${p.stock}" ${stockStatus.disabled ? 'disabled' : ''}>Add to Cart</button>
                 </div>
             </div>
         `;
@@ -250,33 +247,32 @@ function renderSimilarProducts(currentProduct) {
             window.location.href = `product.html?id=${prodId}`;
         });
         card.style.cursor = 'pointer';
-        if (btn) {
+        if (btn && !btn.disabled) {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const prod = allProducts.find(p => p.id === prodId);
-                if (prod) {
-                    addToCart({
-                        id: prod.id,
-                        name: prod.name,
-                        price: prod.price,
-                        imageUrl: getFirstImage(prod)
-                    });
-                }
+                if (prod) addToCart(prod);
             });
         }
     });
 }
 
-// ---------- ADMIN (with spinner on table load) ----------
-async function addProduct(name, price, description, imageDataArray) {
+// ---------- ADMIN ----------
+async function addProduct(name, price, stock, description, imageDataArray) {
     if (sessionStorage.getItem('isAdmin') !== 'true') return alert("Admin only");
     await addDoc(collection(db, "products"), { 
         name, 
         price: parseFloat(price), 
+        stock: parseInt(stock), 
         description, 
         imageData: imageDataArray.slice(0,5),
         createdAt: new Date()
     });
+    fetchProducts();
+}
+async function updateProductStock(productId, newStock) {
+    if (sessionStorage.getItem('isAdmin') !== 'true') return alert("Admin only");
+    await updateDoc(doc(db, "products", productId), { stock: parseInt(newStock) });
     fetchProducts();
 }
 async function deleteProduct(id) {
@@ -288,9 +284,9 @@ async function deleteProduct(id) {
 async function renderAdminTable() {
     const tbody = document.getElementById('adminProductsList');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4" class="loading-container"><div class="spinner"></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="loading-container"><div class="spinner"></div></td></tr>';
     if (allProducts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4">No products. Add some.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5">No products. Add some.</td></tr>';
         return;
     }
     tbody.innerHTML = allProducts.map(p => {
@@ -300,10 +296,16 @@ async function renderAdminTable() {
             <td><img src="${firstImg}" width="40" style="border-radius:8px;"></td>
             <td>${escapeHtml(p.name)}</td>
             <td>₹${p.price?.toFixed(2)}</td>
+            <td><input type="number" id="stock-${p.id}" value="${p.stock}" min="0" style="width:70px;"> <button class="update-stock" data-id="${p.id}">Update</button></td>
             <td><button class="delete-product" data-id="${p.id}"><i class="fas fa-trash-alt"></i> Delete</button></td>
         </tr>`;
     }).join('');
     document.querySelectorAll('.delete-product').forEach(btn => btn.addEventListener('click', () => deleteProduct(btn.dataset.id)));
+    document.querySelectorAll('.update-stock').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const newStock = document.getElementById(`stock-${id}`).value;
+        updateProductStock(id, newStock);
+    }));
 }
 
 // ---------- USER PROFILE ----------
@@ -328,26 +330,43 @@ function showProfileModalIfMissing() {
     }
 }
 
-// ---------- ORDERS (with spinner) ----------
+// ---------- ORDERS WITH CORRECT STATUS & ADMIN PENDING ----------
 async function createOrder(orderData) {
-    await addDoc(collection(db, "orders"), { ...orderData, createdAt: new Date(), userId: currentUser.uid });
+    // Use transaction to decrement stock and add order
+    await runTransaction(db, async (transaction) => {
+        for (const item of orderData.items) {
+            const productRef = doc(db, "products", item.id);
+            const productSnap = await transaction.get(productRef);
+            if (!productSnap.exists()) throw new Error(`Product ${item.id} not found`);
+            const currentStock = productSnap.data().stock;
+            if (currentStock < item.quantity) throw new Error(`Insufficient stock for ${productSnap.data().name}`);
+            transaction.update(productRef, { stock: currentStock - item.quantity });
+        }
+        const orderRef = doc(collection(db, "orders"));
+        // IMPORTANT: status is exactly "Pending" (capital P)
+        transaction.set(orderRef, { ...orderData, status: "Pending", createdAt: new Date(), userId: currentUser.uid });
+    });
 }
+
 async function getMyOrders() {
     const q = query(collection(db, "orders"), where("userId", "==", currentUser.uid));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
+
 async function getPendingOrders() {
-    const q = query(collection(db, "orders"), where("status", "==", "Pending Payment"));
+    // Important: query status == "Pending"
+    const q = query(collection(db, "orders"), where("status", "==", "Pending"));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
+
 async function confirmPayment(orderId) {
     await updateDoc(doc(db, "orders", orderId), { status: "Confirmed" });
     if (window.location.pathname.includes('admin.html')) loadPendingOrdersAdmin();
 }
 
-// ---------- CART PAGE ----------
+// ---------- CART PAGE RENDERING ----------
 function renderCartPage() {
     const container = document.getElementById('cartContainer');
     if (!container) return;
@@ -356,7 +375,7 @@ function renderCartPage() {
         return;
     }
     let total = 0;
-    let html = `<table class="cart-table"><thead><tr><th>Item</th><th>Name</th><th>Price</th><th>Qty</th><th>Total</th><th></th><tr></thead><tbody>`;
+    let html = `<table class="cart-table"><thead><tr><th>Item</th><th>Name</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead><tbody>`;
     cart.forEach((item, idx) => {
         const itemTotal = item.price * item.quantity;
         total += itemTotal;
@@ -364,7 +383,7 @@ function renderCartPage() {
             <td><img class="cart-item-img" src="${item.imageUrl}" alt="${item.name}"></td>
             <td>${escapeHtml(item.name)}</td>
             <td>₹${item.price.toFixed(2)}</td>
-            <td><input type="number" class="qty-input" data-idx="${idx}" value="${item.quantity}" min="1"></td>
+            <td><input type="number" class="qty-input" data-idx="${idx}" value="${item.quantity}" min="1" max="${item.stock}"></td>
             <td>₹${itemTotal.toFixed(2)}</td>
             <td><i class="fas fa-trash-alt remove-item" data-idx="${idx}"></i></td>
         </tr>`;
@@ -374,7 +393,13 @@ function renderCartPage() {
     document.querySelectorAll('.qty-input').forEach(inp => inp.addEventListener('change', (e) => {
         const idx = parseInt(inp.dataset.idx);
         let newQty = parseInt(inp.value);
+        const product = allProducts.find(p => p.id === cart[idx].id);
         if (isNaN(newQty) || newQty < 1) newQty = 1;
+        if (product && newQty > product.stock) {
+            alert(`Only ${product.stock} left in stock.`);
+            newQty = product.stock;
+            inp.value = newQty;
+        }
         cart[idx].quantity = newQty;
         saveCart();
         renderCartPage();
@@ -406,7 +431,7 @@ async function renderMyOrders() {
                 <div><strong>Order ID:</strong> ${o.id.slice(0, 8)}</div>
                 <div><strong>Total:</strong> ₹${o.total}</div>
                 <div><strong>Payment:</strong> ${o.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI (Online)'}</div>
-                <div><strong>Status:</strong> <span class="order-status status-${o.status === 'Placed' ? 'placed' : o.status === 'Pending Payment' ? 'pending' : 'confirmed'}">${o.status}</span></div>
+                <div><strong>Status:</strong> <span class="order-status status-${o.status === 'Confirmed' ? 'confirmed' : 'pending'}">${o.status}</span></div>
                 <div><strong>Address:</strong> ${escapeHtml(o.address)}</div>
             </div>
         `).join('');
@@ -418,26 +443,27 @@ async function loadPendingOrdersAdmin() {
     if (!container) return;
     container.innerHTML = '<div class="loading-container"><div class="spinner"></div></div>';
     const orders = await getPendingOrders();
-    if (orders.length === 0) container.innerHTML = '<div>No pending payments.</div>';
+    if (orders.length === 0) container.innerHTML = '<div>No pending orders (COD or UPI).</div>';
     else {
         container.innerHTML = orders.map(o => `
             <div class="order-card">
                 <p><strong>Order ID:</strong> ${o.id.slice(0, 8)}</p>
                 <p><strong>User:</strong> ${escapeHtml(o.userEmail)}</p>
+                <p><strong>Payment:</strong> ${o.paymentMethod === 'cod' ? '💵 Cash on Delivery' : '📱 UPI (Online)'}</p>
                 <p><strong>Total:</strong> ₹${o.total}</p>
                 <p><strong>Items:</strong> ${o.items.map(i => escapeHtml(i.name)).join(', ')}</p>
-                <button class="btn-primary confirm-payment" data-id="${o.id}">✅ Mark as Payment Received</button>
+                <button class="btn-primary confirm-payment" data-id="${o.id}">✅ ${o.paymentMethod === 'cod' ? 'Confirm & Ship' : 'Mark Payment Received'}</button>
             </div>
         `).join('');
     }
     document.querySelectorAll('.confirm-payment').forEach(btn => btn.addEventListener('click', async () => {
         await confirmPayment(btn.dataset.id);
         loadPendingOrdersAdmin();
-        alert('Payment confirmed!');
+        alert('Order confirmed!');
     }));
 }
 
-// ---------- CHECKOUT (with initial spinner, but already async) ----------
+// ---------- CHECKOUT ----------
 async function initCheckout() {
     if (!currentUser) {
         window.location.href = 'index.html';
@@ -471,21 +497,20 @@ async function initCheckout() {
         await saveUserProfile(currentUser.uid, name, mobile, address);
         const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
         const order = {
-            userId: currentUser.uid,
             userEmail: currentUser.email,
             items: cart.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity })),
             total: total,
             address: address,
             mobile: mobile,
             paymentMethod: method,
-            status: method === 'cod' ? 'Placed' : 'Pending Payment',
-            createdAt: new Date()
+            // STATUS IS "Pending" (capital P)
+            status: "Pending"
         };
         try {
             await createOrder(order);
             cart = [];
             saveCart();
-            alert('🎉 Order placed successfully!');
+            alert('🎉 Order placed successfully! Stock has been updated. Admin will verify.');
             window.location.href = 'myorders.html';
         } catch (err) {
             console.error(err);
@@ -521,6 +546,15 @@ function setupAuthAndFeatures() {
         fetchProducts();
         setupSearch();
     });
+
+    // Hamburger toggle
+    const hamburger = document.getElementById('hamburger');
+    const navLinks = document.getElementById('navLinks');
+    if (hamburger && navLinks) {
+        hamburger.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+        });
+    }
 
     // Login / Signup events
     document.getElementById('doLoginBtn')?.addEventListener('click', async () => {
@@ -588,7 +622,7 @@ function setupAuthAndFeatures() {
         if (e.target.classList.contains('modal')) hideModal(e.target.id);
     });
 
-    // Admin hardcoded login
+    // Admin login
     document.getElementById('adminLoginBtn')?.addEventListener('click', () => showModal('adminAuthModal'));
     document.getElementById('doAdminLoginBtn')?.addEventListener('click', () => {
         const user = document.getElementById('adminUsername').value;
@@ -606,7 +640,7 @@ function setupAuthAndFeatures() {
         window.location.href = 'index.html';
     });
 
-    // Admin add product with images
+    // Admin add product with images and stock
     const fileInput = document.getElementById('prodImageFiles');
     const previewContainer = document.getElementById('imagePreviews');
     if (fileInput) {
@@ -633,12 +667,14 @@ function setupAuthAndFeatures() {
     document.getElementById('addProductBtn')?.addEventListener('click', async () => {
         const name = document.getElementById('prodName').value.trim();
         const price = document.getElementById('prodPrice').value;
+        const stock = document.getElementById('prodStock').value;
         const desc = document.getElementById('prodDesc').value.trim();
         const images = window.tempImagesBase64 || [];
-        if (!name || !price || images.length === 0) return alert('Please fill all fields and select at least one image');
-        await addProduct(name, price, desc, images);
+        if (!name || !price || !stock || images.length === 0) return alert('Please fill all fields and select at least one image');
+        await addProduct(name, price, stock, desc, images);
         document.getElementById('prodName').value = '';
         document.getElementById('prodPrice').value = '';
+        document.getElementById('prodStock').value = '';
         document.getElementById('prodDesc').value = '';
         fileInput.value = '';
         previewContainer.innerHTML = '';
